@@ -1,0 +1,94 @@
+workflows:
+    ionic-capacitor-ios-workflow:
+        name: Ionic Capacitor iOS Workflow
+        max_build_duration: 120
+        instance_type: mac_mini
+        environment:
+            groups:
+              # - manual_code_signing
+                - app_store_credentials
+                - certificate_credentials
+                - other
+            vars:
+                XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+                XCODE_SCHEME: "App"
+            node: latest
+            xcode: latest
+            cocoapods: default
+        triggering:
+            events:
+                - push
+            branch_patterns:
+                - pattern: develop
+                  include: true
+                  source: true
+        scripts:
+            - name: Install npm dependencies for Ionic project
+              script: |
+                npm install
+            - name: Install cap ios dependencies for Ionic project
+              script: |
+                ionic cap add ios
+                ionic cap copy
+                ionic cap sync
+
+            - name: Cocoapods installation
+              script: |
+                cd ios/App && pod install
+            - name: Set up keychain to be used for codesigning using Codemagic CLI 'keychain' command
+              script: |
+                keychain initialize
+            # - name: Set up Provisioning profiles from environment variables (Use with manual code signing)
+            #   script: |
+            #     PROFILES_HOME="$HOME/Library/MobileDevice/Provisioning Profiles"
+            #     mkdir -p "$PROFILES_HOME"
+            #     PROFILE_PATH="$(mktemp "$PROFILES_HOME"/$(uuidgen).mobileprovision)"
+            #     echo ${CM_PROVISIONING_PROFILE} | base64 --decode > "$PROFILE_PATH"
+            #     echo "Saved provisioning profile $PROFILE_PATH"
+            - name: Fetch signing files
+              script: |
+                # app-store-connect fetch-signing-files "com.nevercode.ncionicapp" --type IOS_APP_STORE --create
+                app-store-connect fetch-signing-files $(xcode-project detect-bundle-id) --type IOS_APP_STORE --create
+            # - name: Set up signing certificate (Use with manual code signing)
+            #   script: |
+            #     echo $CM_CERTIFICATE | base64 --decode > /tmp/certificate.p12
+            #     keychain add-certificates --certificate /tmp/certificate.p12 --certificate-password $CM_CERTIFICATE_PASSWORD
+           
+            - name: Add certificates to keychain
+              script: |
+                keychain add-certificates
+            - name: Increment build number
+              script: |
+                #!/bin/sh
+                set -e
+                set -x
+                cd $FCI_BUILD_DIR/ios/App
+                # agvtool new-version -all $(($BUILD_NUMBER +1))
+                agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID") + 1))
+
+            - name: Set up code signing settings on Xcode project
+              script: |
+                xcode-project use-profiles
+            - name: Build ipa for distribution
+              script: |
+                xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "$XCODE_SCHEME"
+        artifacts:
+            - build/ios/ipa/*.ipa
+            - /tmp/xcodebuild_logs/*.log
+            - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+            - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+        publishing:
+          app_store_connect:
+              api_key: $APP_STORE_CONNECT_PRIVATE_KEY         # Contents of the API key, can also reference environment variable such as $APP_STORE_CONNECT_PRIVATE_KEY
+              key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER       # Alphanumeric value that identifies the API key, can also reference environment variable such as $APP_STORE_CONNECT_KEY_IDENTIFIER
+              issuer_id: $APP_STORE_CONNECT_ISSUER_ID         # Alphanumeric value that identifies who created the API key, can also reference environment variable such as $APP_STORE_CONNECT_ISSUER_ID
+              submit_to_testflight: false                     # Optional boolean, defaults to false. Whether or not to submit the uploaded build to TestFlight beta review. Required for distributing to beta groups. Note: This action is performed during post-processing.
+              # beta_groups:                                  # Specify the names of beta tester groups that will get access to the build once it has passed beta review. 
+              #   - group name 1
+              #   - group name 2
+          email:
+            recipients:
+                - chrismrulz@hotmail.com
+            notify:
+                success: false     # To not receive a notification when a build succeeds
+                failure: false     # To not receive a notification when a build fails

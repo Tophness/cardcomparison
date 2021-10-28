@@ -1,0 +1,18 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>
+      Compare {{compcards[0].name}} vs {{compcards[1].name}}
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Tab 1</ion-title>
+    </ion-toolbar>
+  </ion-header>
+    <app-comparison
+      [arrayall]="[compcards[0],compcards[1]]" (itemClick)='itemComponentClick($event)'
+    ></app-comparison>
+</ion-content>

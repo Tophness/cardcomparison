@@ -1,0 +1,9 @@
+
+<table><td>
+<div
+  style="display: table-cell; padding: 20px"
+  *ngFor="let cardset of arrayall;"
+>
+  <tr><app-card [name]="cardset.name" [image]="cardset.image" [rating]="cardset.rating" [prosandcons]="cardset.prosandcons" (click)='onClick(cardset)'></app-card></tr>
+</div>
+</td></table>
