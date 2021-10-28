@@ -12,6 +12,8 @@ workflows:
             vars:
                 XCODE_WORKSPACE: "ios/App/App.xcworkspace"
                 XCODE_SCHEME: "App"
+                BUNDLE_ID: "io.codemagic.swiftly"
+                APP_STORE_APP_ID: 1555555551
             node: latest
             xcode: latest
             cocoapods: default
